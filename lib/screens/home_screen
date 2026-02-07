@@ -1,0 +1,221 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/voice_agent_controller.dart';
+import '../widgets/global_voice_assistant.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String? _pendingTranscript;
+
+  void _checkNavigation() {
+    final voice = context.read<VoiceAgentController>();
+    final response = voice.responseText.toLowerCase();
+    
+    if (response.contains('scholarship')) {
+      Navigator.pushNamed(context, '/service/scholarship');
+    } else if (response.contains('license') || response.contains('driving')) {
+      Navigator.pushNamed(context, '/service/license');
+    } else if (response.contains('income') || response.contains('certificate')) {
+      Navigator.pushNamed(context, '/service/income');
+    } else if (response.contains('document') || response.contains('vault')) {
+      Navigator.pushNamed(context, '/documents');
+    } else if (response.contains('gr') || response.contains('rule') || response.contains('government')) {
+      Navigator.pushNamed(context, '/gr');
+    } else if (response.contains('service') || response.contains('services')) {
+      Navigator.pushNamed(context, '/services');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.blue.shade50,
+              Colors.white,
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            SafeArea(
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.blue.shade600, Colors.blue.shade800],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.account_balance, size: 40, color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'SevaSetu',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Your Gateway to Government Services',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Consumer<VoiceAgentController>(
+                            builder: (context, voice, _) {
+                              // Check navigation when response is ready
+                              if (voice.responseText.isNotEmpty && 
+                                  voice.transcript.isNotEmpty &&
+                                  voice.transcript != 'Listening...' &&
+                                  _pendingTranscript != voice.transcript) {
+ = voice.transcript                                _pendingTranscript;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) _checkNavigation();
+                                });
+                              }
+                              
+                              return GestureDetector(
+                                onTap: () => voice.startListening(),
+                                child: Container(
+                                  width: 160,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: voice.isListening 
+                                          ? [Colors.red.shade600, Colors.red.shade400]
+                                          : [Colors.blue.shade600, Colors.blue.shade400],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (voice.isListening ? Colors.red : Colors.blue)
+                                            .withOpacity(0.4),
+                                        blurRadius: 30,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        voice.isListening ? Icons.stop : Icons.mic,
+                                        size: 60,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        voice.isListening ? 'Listening...' : 'Tap to Speak',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 40),
+                          Consumer<VoiceAgentController>(
+                            builder: (context, voice, _) {
+                              if (voice.transcript.isEmpty || 
+                                  voice.transcript == 'Listening...') {
+                                return const SizedBox.shrink();
+                              }
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 32),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      '"${voice.transcript}"',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                    if (voice.responseText.isNotEmpty) ...[
+                                      const Divider(height: 16),
+                                      Text(
+                                        voice.responseText,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.green.shade700,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 32),
+                          Text(
+                            'Try: "Show GR" or "Open documents"',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const GlobalVoiceAssistant(),
+          ],
+        ),
+      ),
+    );
+  }
+}

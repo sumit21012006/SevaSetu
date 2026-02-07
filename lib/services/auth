@@ -1,0 +1,223 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+class AuthService extends ChangeNotifier {
+  FirebaseAuth? _auth;
+  bool _isAuthenticated = false;
+  String? _userId;
+  String? _email;
+  String? _userName;
+  String? _userPhone;
+  List<String> _selectedDocuments = [];
+  String? _errorMessage;
+  bool _isDemoMode = true;
+
+  bool get isAuthenticated => _isAuthenticated;
+  String? get userId => _userId;
+  String? get email => _email;
+  String? get userName => _userName;
+  String? get userPhone => _userPhone;
+  List<String> get selectedDocuments => _selectedDocuments;
+  String? get errorMessage => _errorMessage;
+  bool get isDemoMode => _isDemoMode;
+
+  AuthService() {
+    _initAuth();
+  }
+
+  void _initAuth() {
+    if (kIsWeb) {
+      _isDemoMode = true;
+      print('ℹ️ Running in demo mode (web)');
+    } else {
+      try {
+        _auth = FirebaseAuth.instance;
+        _isDemoMode = false;
+        _auth?.authStateChanges().listen(_onAuthStateChanged);
+        _checkCurrentUser();
+      } catch (e) {
+        _isDemoMode = true;
+        print('⚠️ Firebase Auth failed, using demo mode: $e');
+      }
+    }
+  }
+
+  void _checkCurrentUser() {
+    if (_auth != null && !kIsWeb) {
+      final user = _auth!.currentUser;
+      if (user != null) {
+        _isAuthenticated = true;
+        _userId = user.uid;
+        _email = user.email;
+        notifyListeners();
+      }
+    }
+  }
+
+  void _onAuthStateChanged(User? user) {
+    if (user != null) {
+      _isAuthenticated = true;
+      _userId = user.uid;
+      _email = user.email;
+      _errorMessage = null;
+    } else {
+      _isAuthenticated = false;
+      _userId = null;
+      _email = null;
+    }
+    notifyListeners();
+  }
+
+  void setUserData(Map<String, dynamic> data) {
+    if (data['name'] != null) {
+      _userName = data['name'] as String;
+    }
+    if (data['phone'] != null) {
+      _userPhone = data['phone'] as String;
+    }
+    if (data['selectedDocuments'] != null) {
+      _selectedDocuments = List<String>.from(data['selectedDocuments'] as List);
+    }
+    notifyListeners();
+  }
+
+  Future<bool> signIn(String email, String password) async {
+    if (_isDemoMode || kIsWeb) {
+      return _demoSignIn(email, password);
+    }
+    
+    try {
+      _errorMessage = null;
+      notifyListeners();
+      
+      final result = await _auth!.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      _isAuthenticated = true;
+      _userId = result.user?.uid;
+      _email = result.user?.email;
+      notifyListeners();
+      
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _getErrorMessage(e.code);
+      _isAuthenticated = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'An error occurred. Please try again.';
+      _isAuthenticated = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> _demoSignIn(String email, String password) async {
+    await Future.delayed(const Duration(seconds: 1));
+    
+    if (email.isNotEmpty && password.length >= 6) {
+      _isAuthenticated = true;
+      _userId = 'demo_user_${DateTime.now().millisecondsSinceEpoch}';
+      _email = email;
+      _userName = email.split('@').first; // Use part before @ as name
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = 'Invalid credentials';
+      _isAuthenticated = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> signUp(String email, String password) async {
+    if (_isDemoMode || kIsWeb) {
+      return _demoSignUp(email, password);
+    }
+    
+    try {
+      _errorMessage = null;
+      notifyListeners();
+      
+      final result = await _auth!.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      _isAuthenticated = true;
+      _userId = result.user?.uid;
+      _email = result.user?.email;
+      notifyListeners();
+      
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _getErrorMessage(e.code);
+      _isAuthenticated = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'An error occurred. Please try again.';
+      _isAuthenticated = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> _demoSignUp(String email, String password) async {
+    await Future.delayed(const Duration(seconds: 1));
+    
+    if (email.isNotEmpty && password.length >= 6) {
+      _isAuthenticated = true;
+      _userId = 'demo_user_${DateTime.now().millisecondsSinceEpoch}';
+      _email = email;
+      _userName = email.split('@').first;
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = 'Invalid credentials';
+      _isAuthenticated = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> signOut() async {
+    if (_auth != null && !kIsWeb) {
+      await _auth!.signOut();
+    }
+    _isAuthenticated = false;
+    _userId = null;
+    _email = null;
+    _userName = null;
+    _userPhone = null;
+    _selectedDocuments = [];
+    notifyListeners();
+  }
+
+  String _getErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No user found with this email.';
+      case 'wrong-password':
+        return 'Wrong password. Please try again.';
+      case 'email-already-in-use':
+        return 'This email is already registered.';
+      case 'invalid-email':
+        return 'Invalid email address.';
+      case 'weak-password':
+        return 'Password is too weak.';
+      case 'operation-not-allowed':
+        return 'Operation not allowed.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      default:
+        return 'An error occurred. Please try again.';
+    }
+  }
+}
