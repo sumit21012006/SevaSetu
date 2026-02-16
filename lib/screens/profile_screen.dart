@@ -87,7 +87,7 @@ class ProfileScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: InkWell(
                         onTap: () {
-                          Navigator.popUntil(context, (route) => route.isFirst);
+                          Navigator.pushNamed(context, '/documents');
                         },
                         borderRadius: BorderRadius.circular(16),
                         child: Padding(
@@ -125,7 +125,7 @@ class ProfileScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: InkWell(
                         onTap: () {
-                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/services');
                         },
                         borderRadius: BorderRadius.circular(16),
                         child: Padding(

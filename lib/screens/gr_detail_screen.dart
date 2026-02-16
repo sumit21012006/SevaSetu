@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:typed_data' show Uint8List;
 import '../widgets/global_voice_assistant.dart';
+
+// Import html library for web functionality with stub for mobile
+import '../utils/html_stub.dart'
+    if (dart.library.html) 'dart:html' as html;
+import 'dart:io' show File;
+import 'package:path_provider/path_provider.dart' show getTemporaryDirectory;
 
 class GRDetailScreen extends StatelessWidget {
   final String title;
@@ -19,14 +28,100 @@ class GRDetailScreen extends StatelessWidget {
   });
 
   Future<void> _launchPDF(BuildContext context) async {
-    final Uri url = Uri.parse(pdfAsset);
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+    try {
+      if (kIsWeb) {
+        // For web, load the PDF bytes and create a data URL
+        final bytes = await _loadPdfBytes(pdfAsset);
+        final blob = html.Blob([bytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+
+        // Open in new tab
+        html.window.open(url, '_blank');
+        html.Url.revokeObjectUrl(url);
+      } else {
+        // For mobile, try to launch the PDF using the asset path
+        try {
+          // Try to get the file path for the asset
+          final bytes = await _loadPdfBytes(pdfAsset);
+          final tempDir = await getTemporaryDirectory();
+          final file = File('${tempDir.path}/document.pdf');
+          await file.writeAsBytes(bytes);
+
+          // Launch the PDF file
+          if (await canLaunchUrl(Uri.file(file.path))) {
+            await launchUrl(Uri.file(file.path));
+          } else {
+            _showPdfInDialog(context, pdfAsset);
+          }
+        } catch (e) {
+          _showPdfInDialog(context, pdfAsset);
+        }
+      }
+    } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open PDF')),
+          SnackBar(content: Text('Error opening PDF: $e')),
         );
       }
     }
+  }
+
+  Future<Uint8List> _loadPdfBytes(String assetPath) async {
+    final data = await rootBundle.load(assetPath);
+    return data.buffer.asUint8List();
+  }
+
+  void _showPdfInDialog(BuildContext context, String pdfAsset) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'PDF Document',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Icon(
+                Icons.picture_as_pdf,
+                size: 60,
+                color: Colors.red.shade700,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'PDF: $pdfAsset',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+                label: const Text('Close'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade400,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -62,7 +157,8 @@ class GRDetailScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 20, horizontal: 24),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Colors.red.shade700, Colors.red.shade500],
@@ -165,7 +261,7 @@ class GRDetailScreen extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
- decoration: BoxDecoration(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: color.withOpacity(0.1),
         ),

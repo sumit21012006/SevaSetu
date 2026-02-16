@@ -11,22 +11,27 @@ import 'screens/service_guidance_screen.dart';
 import 'screens/document_upload_screen.dart';
 import 'screens/gr_explanation_screen.dart';
 import 'screens/profile_screen.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'theme/design_system.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  if (!kIsWeb) {
-    try {
-      await Firebase.initializeApp();
-      print('Firebase initialized successfully');
-    } catch (e) {
-      print('Firebase initialization failed: $e');
-    }
-  } else {
-    print('Running in web mode (demo mode)');
+
+  try {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyBUE2OaAwdcK3MqxPHs0Wmb6iAcb-vHsoQ",
+        authDomain: "svasetu-app.firebaseapp.com",
+        projectId: "svasetu-app",
+        storageBucket: "svasetu-app.firebasestorage.app",
+        messagingSenderId: "720846480272",
+        appId: "1:720846480272:web:787489877603ca1964c915",
+      ),
+    );
+    print('✅ Firebase initialized successfully');
+  } catch (e) {
+    print('⚠️ Firebase initialization: $e');
   }
-  
+
   runApp(const SevaSetu());
 }
 
@@ -40,16 +45,133 @@ class SevaSetu extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => DocumentProvider()),
-        ChangeNotifierProvider(create: (_) => VoiceAgentController(navigatorKey)),
+        ChangeNotifierProxyProvider<AuthService, DocumentProvider>(
+          create: (_) => DocumentProvider(),
+          update: (_, auth, docProvider) {
+            docProvider?.setUserId(auth.userId);
+            return docProvider!;
+          },
+        ),
+        ChangeNotifierProvider(
+            create: (_) => VoiceAgentController(navigatorKey)),
       ],
       child: MaterialApp(
         title: 'SevaSetu',
         navigatorKey: navigatorKey,
         theme: ThemeData(
-          primarySwatch: Colors.blue,
+          // Primary Theme
+          primaryColor: SevaSetuTheme.primaryBlue,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: SevaSetuTheme.primaryBlue,
+            primary: SevaSetuTheme.primaryBlue,
+            secondary: SevaSetuTheme.secondaryBlue,
+          ),
+
+          // Typography
+          fontFamily: 'Inter',
+          textTheme: const TextTheme(
+            displayLarge: SevaSetuTheme.heading1,
+            displayMedium: SevaSetuTheme.heading2,
+            displaySmall: SevaSetuTheme.heading3,
+            bodyLarge: SevaSetuTheme.bodyLarge,
+            bodyMedium: SevaSetuTheme.bodyMedium,
+            bodySmall: SevaSetuTheme.bodySmall,
+            labelSmall: SevaSetuTheme.caption,
+          ),
+
+          // App Bar
+          appBarTheme: AppBarTheme(
+            backgroundColor: SevaSetuTheme.surface,
+            elevation: 0,
+            centerTitle: true,
+            titleTextStyle: SevaSetuTheme.heading3.copyWith(
+              color: SevaSetuTheme.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+            iconTheme: const IconThemeData(color: SevaSetuTheme.textPrimary),
+            actionsIconTheme:
+                const IconThemeData(color: SevaSetuTheme.textPrimary),
+          ),
+
+          // Buttons
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: SevaSetuTheme.primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: SevaSetuTheme.borderRadiusMD,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: SevaSetuTheme.spacingLG,
+                vertical: SevaSetuTheme.spacingMD,
+              ),
+              elevation: SevaSetuTheme.elevationMedium,
+              shadowColor: SevaSetuTheme.primaryBlue.withOpacity(0.3),
+            ),
+          ),
+
+          // Text Fields
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: SevaSetuTheme.surface,
+            border: OutlineInputBorder(
+              borderRadius: SevaSetuTheme.borderRadiusMD,
+              borderSide: BorderSide(color: SevaSetuTheme.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: SevaSetuTheme.borderRadiusMD,
+              borderSide: BorderSide(color: SevaSetuTheme.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: SevaSetuTheme.borderRadiusMD,
+              borderSide:
+                  BorderSide(color: SevaSetuTheme.primaryBlue, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: SevaSetuTheme.borderRadiusMD,
+              borderSide: BorderSide(color: SevaSetuTheme.errorRed, width: 2),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: SevaSetuTheme.borderRadiusMD,
+              borderSide: BorderSide(color: SevaSetuTheme.errorRed, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: SevaSetuTheme.spacingMD,
+              vertical: SevaSetuTheme.spacingSM,
+            ),
+            labelStyle: SevaSetuTheme.bodyMedium
+                .copyWith(color: SevaSetuTheme.textSecondary),
+            hintStyle: SevaSetuTheme.bodyMedium
+                .copyWith(color: SevaSetuTheme.textTertiary),
+          ),
+
+          // Navigation Bar
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: SevaSetuTheme.surface,
+            elevation: 0,
+            indicatorColor: SevaSetuTheme.primaryBlue.withOpacity(0.1),
+            labelTextStyle: MaterialStateProperty.all(
+              SevaSetuTheme.bodySmall.copyWith(
+                color: SevaSetuTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+
+          // SnackBars
+          snackBarTheme: SnackBarThemeData(
+            backgroundColor: SevaSetuTheme.textPrimary,
+            actionTextColor: SevaSetuTheme.primaryBlue,
+            contentTextStyle:
+                SevaSetuTheme.bodyMedium.copyWith(color: Colors.white),
+            shape: RoundedRectangleBorder(
+              borderRadius: SevaSetuTheme.borderRadiusMD,
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+
+          // Use Material 3
           useMaterial3: true,
-          appBarTheme: const AppBarTheme(centerTitle: true),
         ),
         home: Consumer<AuthService>(
           builder: (context, auth, _) =>
@@ -62,7 +184,8 @@ class SevaSetu extends StatelessWidget {
           '/services': (_) => const ServiceGuidanceScreen(),
           '/gr': (_) => const GRExplanationScreen(),
           '/profile': (_) => const ProfileScreen(),
-          '/service/scholarship': (_) => ServiceDetailScreen(serviceId: 'scholarship'),
+          '/service/scholarship': (_) =>
+              ServiceDetailScreen(serviceId: 'scholarship'),
           '/service/license': (_) => ServiceDetailScreen(serviceId: 'license'),
           '/service/income': (_) => ServiceDetailScreen(serviceId: 'income'),
         },
@@ -103,7 +226,8 @@ class _MainScreenState extends State<MainScreen> {
     // Listen to voice controller for navigation commands
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
-        final voiceController = Provider.of<VoiceAgentController>(context, listen: false);
+        final voiceController =
+            Provider.of<VoiceAgentController>(context, listen: false);
         voiceController.addListener(_onVoiceNavigation);
       } catch (e) {
         // Context not available
@@ -114,7 +238,8 @@ class _MainScreenState extends State<MainScreen> {
   void _onVoiceNavigation() {
     if (!mounted) return;
     try {
-      final voiceController = Provider.of<VoiceAgentController>(context, listen: false);
+      final voiceController =
+          Provider.of<VoiceAgentController>(context, listen: false);
       if (voiceController.targetNavigationIndex != null) {
         setState(() {
           _currentIndex = voiceController.targetNavigationIndex!;
@@ -130,7 +255,8 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void dispose() {
     try {
-      final voiceController = Provider.of<VoiceAgentController>(context, listen: false);
+      final voiceController =
+          Provider.of<VoiceAgentController>(context, listen: false);
       voiceController.removeListener(_onVoiceNavigation);
     } catch (e) {
       // Widget is being disposed
@@ -165,7 +291,9 @@ class _MainScreenState extends State<MainScreen> {
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+                  color: isSelected
+                      ? Colors.blue.withOpacity(0.1)
+                      : Colors.transparent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

@@ -8,6 +8,7 @@ class DocumentProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   bool _isDemoMode = true;
+  String? _currentUserId;
 
   List<DocumentModel> get documents => _documents;
   bool get isLoading => _isLoading;
@@ -18,7 +19,7 @@ class DocumentProvider with ChangeNotifier {
   final List<DocumentModel> _demoDocuments = [
     DocumentModel(
       id: '1',
-      userId: 'demo',
+      userId: 'demo-user',
       type: 'Aadhaar Card',
       issueDate: DateTime(2020, 1, 15),
       expiryDate: DateTime(2030, 1, 15),
@@ -27,7 +28,7 @@ class DocumentProvider with ChangeNotifier {
     ),
     DocumentModel(
       id: '2',
-      userId: 'demo',
+      userId: 'demo-user',
       type: 'Driving License',
       issueDate: DateTime(2022, 6, 10),
       expiryDate: DateTime(2025, 6, 10),
@@ -36,7 +37,7 @@ class DocumentProvider with ChangeNotifier {
     ),
     DocumentModel(
       id: '3',
-      userId: 'demo',
+      userId: 'demo-user',
       type: 'Income Certificate',
       issueDate: DateTime(2023, 3, 20),
       expiryDate: DateTime(2024, 3, 20),
@@ -45,13 +46,31 @@ class DocumentProvider with ChangeNotifier {
     ),
     DocumentModel(
       id: '4',
-      userId: 'demo',
+      userId: 'demo-user',
       type: 'Birth Certificate',
       issueDate: DateTime(2010, 5, 15),
       expiryDate: null,
       status: 'Valid',
       isPdf: true,
       fileName: 'birth_certificate.pdf',
+    ),
+    DocumentModel(
+      id: '5',
+      userId: 'demo-user',
+      type: 'PAN Card',
+      issueDate: DateTime(2020, 1, 15),
+      expiryDate: DateTime(2025, 2, 20), // Expiring within 30 days
+      status: 'Expiring Soon',
+      isPdf: false,
+    ),
+    DocumentModel(
+      id: '6',
+      userId: 'demo-user',
+      type: 'Passport',
+      issueDate: DateTime(2020, 1, 15),
+      expiryDate: DateTime(2025, 2, 15), // Expiring today
+      status: 'Expiring Soon',
+      isPdf: false,
     ),
   ];
 
@@ -60,28 +79,34 @@ class DocumentProvider with ChangeNotifier {
   }
 
   void _initFirestore() {
-    if (kIsWeb) {
-      // Use demo mode for web
+    try {
+      _firestore = FirebaseFirestore.instance;
+      _isDemoMode = false;
+      print('✅ Firestore initialized');
+      _loadDocuments();
+    } catch (e) {
       _isDemoMode = true;
       _documents = _demoDocuments;
-      print('ℹ️ DocumentProvider: Demo mode (web)');
-    } else {
-      // Try to initialize Firestore for mobile
-      try {
-        _firestore = FirebaseFirestore.instance;
-        _isDemoMode = false;
-        _loadDocuments();
-      } catch (e) {
-        _isDemoMode = true;
-        _documents = _demoDocuments;
-        print('⚠️ Firestore failed, using demo mode: $e');
-      }
+      print('⚠️ Firestore error: $e');
     }
   }
 
   Future<void> _loadDocuments() async {
     if (_isDemoMode) {
+      print('📚 Using demo documents (demo mode)');
       _documents = _demoDocuments;
+      return;
+    }
+
+    if (_firestore == null) {
+      print('❌ Firestore not initialized');
+      _documents = _demoDocuments;
+      return;
+    }
+
+    if (_currentUserId == null) {
+      print('⚠️ No user ID set, cannot load documents');
+      _documents = [];
       return;
     }
 
@@ -89,22 +114,26 @@ class DocumentProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Try to load from Firestore
+      print('📥 Loading documents for user: $_currentUserId');
+      // Filter documents by current user ID
       final snapshot = await _firestore!
           .collection('documents')
-          .where('userId', isEqualTo: 'current_user')
+          .where('userId', isEqualTo: _currentUserId)
           .get();
 
       if (snapshot.docs.isNotEmpty) {
         _documents = snapshot.docs
             .map((doc) => DocumentModel.fromJson(doc.data()))
             .toList();
+        print('✅ Loaded ${_documents.length} documents from Firestore');
       } else {
-        _documents = _demoDocuments;
+        print('ℹ️ No documents found in Firestore for user $_currentUserId');
+        _documents = [];
       }
     } catch (e) {
-      _documents = _demoDocuments;
-      _errorMessage = 'Using demo mode';
+      print('❌ Error loading from Firestore: $e');
+      _documents = [];
+      _errorMessage = 'Failed to load: $e';
     }
 
     _isLoading = false;
@@ -114,7 +143,7 @@ class DocumentProvider with ChangeNotifier {
   void addDocument(DocumentModel document) {
     _documents.insert(0, document);
     notifyListeners();
-    
+
     // Try to save to Firestore (non-blocking)
     if (!_isDemoMode) {
       _saveToFirestore(document);
@@ -122,19 +151,35 @@ class DocumentProvider with ChangeNotifier {
   }
 
   Future<void> _saveToFirestore(DocumentModel document) async {
+    if (_firestore == null) {
+      print('❌ Firestore not initialized');
+      return;
+    }
+
     try {
+      print('💾 Saving document metadata to Firestore: ${document.id}');
+      // Save only metadata, not image data
       await _firestore!.collection('documents').doc(document.id).set(
-        document.toJson(),
-      );
+            document.toFirestoreJson(),
+          );
+      print('✅ Document saved successfully: ${document.id}');
+
+      // TODO: If there's image data, upload to Cloud Storage separately
+      if (document.imageData != null) {
+        print('📸 Image data detected - should upload to Cloud Storage');
+        // _uploadImageToStorage(document);
+      }
     } catch (e) {
-      print('Firestore save error: $e');
+      print('❌ Firestore save error: $e');
+      _errorMessage = 'Failed to save: $e';
+      notifyListeners();
     }
   }
 
   void removeDocument(String id) {
     _documents.removeWhere((doc) => doc.id == id);
     notifyListeners();
-    
+
     // Try to delete from Firestore (non-blocking)
     if (!_isDemoMode) {
       _deleteFromFirestore(id);
@@ -154,7 +199,7 @@ class DocumentProvider with ChangeNotifier {
     if (index != -1) {
       _documents[index] = document;
       notifyListeners();
-      
+
       if (!_isDemoMode) {
         _saveToFirestore(document);
       }
@@ -173,8 +218,20 @@ class DocumentProvider with ChangeNotifier {
     return _documents.where((doc) => doc.status == 'Expired').toList();
   }
 
+  List<DocumentModel> getExpiringSoonDocuments() {
+    return _documents.where((doc) => doc.status == 'Expiring Soon').toList();
+  }
+
   List<DocumentModel> getValidDocuments() {
     return _documents.where((doc) => doc.status == 'Valid').toList();
+  }
+
+  /// Get all documents that need attention (expired or expiring soon)
+  List<DocumentModel> getDocumentsNeedingAttention() {
+    return _documents
+        .where(
+            (doc) => doc.status == 'Expired' || doc.status == 'Expiring Soon')
+        .toList();
   }
 
   void refreshDocuments() {
@@ -182,4 +239,20 @@ class DocumentProvider with ChangeNotifier {
       _loadDocuments();
     }
   }
+
+  // Set the current user ID and reload documents
+  void setUserId(String? userId) {
+    if (_currentUserId != userId) {
+      _currentUserId = userId;
+      if (userId != null) {
+        _loadDocuments();
+      } else {
+        _documents = [];
+        notifyListeners();
+      }
+    }
+  }
+
+  // Getter for current user ID
+  String? get currentUserId => _currentUserId;
 }

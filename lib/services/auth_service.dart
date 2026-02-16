@@ -26,33 +26,32 @@ class AuthService extends ChangeNotifier {
   }
 
   void _initAuth() {
-    if (kIsWeb) {
+    try {
+      _auth = FirebaseAuth.instance;
+      _isDemoMode = false;
+      print('✅ Firebase Auth initialized');
+      _auth?.authStateChanges().listen(_onAuthStateChanged);
+      _checkCurrentUser();
+    } catch (e) {
       _isDemoMode = true;
-      print('ℹ️ Running in DEMO mode (web)');
-      print('ℹ️ Configure Firebase for web to enable real auth');
-    } else {
-      try {
-        _auth = FirebaseAuth.instance;
-        _isDemoMode = false;
-        print('✅ Firebase Auth initialized');
-        _auth?.authStateChanges().listen(_onAuthStateChanged);
-        _checkCurrentUser();
-      } catch (e) {
-        _isDemoMode = true;
-        print('⚠️ Firebase Auth failed, using demo mode: $e');
-      }
+      print('⚠️ Firebase Auth error: $e');
     }
   }
 
   void _checkCurrentUser() {
-    if (_auth != null && !kIsWeb) {
-      final user = _auth!.currentUser;
+    try {
+      final user = _auth?.currentUser;
       if (user != null) {
         _isAuthenticated = true;
         _userId = user.uid;
         _email = user.email;
+        print('🔐 Current user: $_email (UID: $_userId)');
         notifyListeners();
+      } else {
+        print('🔐 No user logged in');
       }
+    } catch (e) {
+      print('⚠️ Error checking current user: $e');
     }
   }
 
@@ -87,21 +86,21 @@ class AuthService extends ChangeNotifier {
     if (_isDemoMode) {
       return _demoSignIn(email, password);
     }
-    
+
     try {
       _errorMessage = null;
       notifyListeners();
-      
+
       final result = await _auth!.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
+
       _isAuthenticated = true;
       _userId = result.user?.uid;
       _email = result.user?.email;
       notifyListeners();
-      
+
       return true;
     } on FirebaseAuthException catch (e) {
       _errorMessage = _getErrorMessage(e.code);
@@ -118,7 +117,7 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> _demoSignIn(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));
-    
+
     if (email.isNotEmpty && password.length >= 6) {
       _isAuthenticated = true;
       _userId = 'demo_user_${DateTime.now().millisecondsSinceEpoch}';
@@ -139,21 +138,21 @@ class AuthService extends ChangeNotifier {
     if (_isDemoMode) {
       return _demoSignUp(email, password);
     }
-    
+
     try {
       _errorMessage = null;
       notifyListeners();
-      
+
       final result = await _auth!.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
+
       _isAuthenticated = true;
       _userId = result.user?.uid;
       _email = result.user?.email;
       notifyListeners();
-      
+
       return true;
     } on FirebaseAuthException catch (e) {
       _errorMessage = _getErrorMessage(e.code);
@@ -170,7 +169,7 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> _demoSignUp(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));
-    
+
     if (email.isNotEmpty && password.length >= 6) {
       _isAuthenticated = true;
       _userId = 'demo_user_${DateTime.now().millisecondsSinceEpoch}';

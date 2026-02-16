@@ -13,27 +13,32 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <title>SevaSetu - Civic Voice Interface</title>
   <link rel="manifest" href="manifest.json">
-  
-  <!-- Firebase Configuration - REPLACE WITH YOUR OWN CONFIG -->
-  <!-- Get your config from: Firebase Console → Project Settings → Your Apps → Web → firebaseConfig -->
+
+  <!-- Firebase Scripts - Compat version for Flutter compatibility -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   
   <script>
-    // TODO: Replace the following with your app's Firebase project configuration
-    // See: https://firebase.google.com/docs/web/setup#config-object
+    // Firebase config for Dart - Initialize HERE
     var firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyBUE2OaAwdcK3MqxPHs0Wmb6iAcb-vHsoQ",
+      authDomain: "svasetu-app.firebaseapp.com",
+      projectId: "svasetu-app",
+      storageBucket: "svasetu-app.firebasestorage.app",
+      messagingSenderId: "720846480272",
+      appId: "1:720846480272:web:787489877603ca1964c915"
     };
     
-    // Initialize Firebase
-    // Comment out the initializeApp line if you haven't added your config yet
-    // firebase.initializeApp(firebaseConfig);
+    // Initialize Firebase (for Dart to use)
+    try {
+      firebase.initializeApp(firebaseConfig);
+      console.log('✅ Firebase JavaScript SDK initialized');
+      console.log('Project:', firebaseConfig.projectId);
+    } catch (error) {
+      console.error('Firebase JS init error:', error);
+    }
   </script>
 </head>
 <body>
